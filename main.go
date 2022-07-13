@@ -1,21 +1,26 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
-	// "golang.org/x/crypto/argon2"
+	gateway "github.com/soundise/soundise/api"
 )
 
 func main() {
+	var gateway gateway.WebsocketGateway = gateway.Init()
 
-	router := gin.Default()
+	staticServer := http.FileServer(http.Dir("static/"))
+	http.Handle("/", staticServer)
+	http.HandleFunc("/api", testFunc)
+	http.HandleFunc("/ws", gateway.HandleConnection)
 
-	router.GET("/hello", hello)
-	router.Run("0.0.0.0:8000")
-
+	log.Println("Listening...")
+	log.Fatal(http.ListenAndServe("0.0.0.0:8000", nil))
 }
 
-func hello(c *gin.Context) {
-	c.String(http.StatusOK, "Hello World")
+func testFunc(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("{\"message\": \"Hello World\"}"))
 }
