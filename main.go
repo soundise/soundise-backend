@@ -1,26 +1,51 @@
 package main
 
 import (
+	"crypto/tls"
 	"log"
 	"net/http"
+	"time"
 
-	gateway "github.com/soundise/soundise/api"
+	"github.com/gorilla/mux"
+	"github.com/soundise/soundise/handlers"
 )
 
 func main() {
-	var gateway gateway.WebsocketGateway = gateway.Init()
+	var router *mux.Router = mux.NewRouter()
 
 	staticServer := http.FileServer(http.Dir("static/"))
-	http.Handle("/", staticServer)
-	http.HandleFunc("/api", testFunc)
-	http.HandleFunc("/ws", gateway.HandleConnection)
 
+	handlers.UsersHandler{}.New(router)
+	handlers.WebsocketGateway{}.New(router)
+
+	router.PathPrefix("/").Handler(staticServer).Methods("GET")
+
+	var server = http.Server{
+		Addr:         ":8000",
+		Handler:      router,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  120 * time.Second,
+
+		TLSConfig: &tls.Config{
+			PreferServerCipherSuites: true,
+
+			CurvePreferences: []tls.CurveID{
+				tls.CurveP256,
+				tls.X25519,
+			},
+			MinVersion: tls.VersionTLS12,
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
+				tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+		},
+	}
 	log.Println("Listening...")
-	log.Fatal(http.ListenAndServe("0.0.0.0:8000", nil))
-}
 
-func testFunc(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("{\"message\": \"Hello World\"}"))
+	log.Fatal(server.ListenAndServe())
 }

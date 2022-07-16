@@ -1,9 +1,10 @@
-package gateway
+package handlers
 
 import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 )
 
@@ -11,15 +12,17 @@ type WebsocketGateway struct {
 	upgrader websocket.Upgrader
 }
 
-func Init() WebsocketGateway {
-	return WebsocketGateway{
-		websocket.Upgrader{
-			CheckOrigin: func(r *http.Request) bool { return true },
-		},
+func (gateway WebsocketGateway) New(router *mux.Router) *WebsocketGateway {
+	router.HandleFunc("/ws", gateway.HandleConnection)
+
+	gateway.upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true }, // TODO: Remove this in the future (security reason)
 	}
+
+	return &gateway
 }
 
-func (gateway *WebsocketGateway) HandleConnection(w http.ResponseWriter, r *http.Request) {
+func (gateway WebsocketGateway) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := gateway.upgrader.Upgrade(w, r, nil)
 
